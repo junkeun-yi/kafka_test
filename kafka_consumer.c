@@ -63,6 +63,7 @@ static void stop (int sig) {
 }
 
 FILE *file;
+int total_bytes = 0;
 
 static void hexdump (FILE *fp, const char *name, const void *ptr, size_t len) {
 	const char *p = (const char *)ptr;
@@ -171,7 +172,9 @@ static void msg_consume (rd_kafka_message_t *rkmessage) {
 		printf("%.*s\n",
 		       (int)rkmessage->len, (char *)rkmessage->payload);
 	if (file != NULL) {
-        fprintf(file, "%s", (char *) rkmessage->payload);
+        // fprintf(file, "%s", (char *) rkmessage->payload);
+		fwrite(rkmessage->payload, rkmessage->len, 1, file);
+		total_bytes += (int) rkmessage->len;
 	} 
 }
 
@@ -631,6 +634,8 @@ done:
 
 	if (file != NULL) 
 		fclose(file);
+
+	printf("FINAL NUMBER OF BYTES RECEIVED: %d", total_bytes);
 
 	return 0;
 }

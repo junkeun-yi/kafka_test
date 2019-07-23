@@ -86,6 +86,7 @@ int main (int argc, char **argv) {
         const char *brokers;    /* Argument: broker list */
         const char *topic;      /* Argument: topic to produce to */
 		FILE *fp;
+		int bytes_total = 0;
 
         /*
          * Argument validation
@@ -165,11 +166,13 @@ int main (int argc, char **argv) {
                 "%% Or just hit enter to only serve delivery reports\n"
                 "%% Press Ctrl-C or Ctrl-D to exit\n");
  
-        while (run && fgets(buf, sizeof(buf), fp)) {
-                size_t len = strlen(buf);
+        // while (run && fgets(buf, sizeof(buf), fp)) {
+        while (run && fread(buf, 512, 1, fp)) {
+                // size_t len = strlen(buf);
+				size_t len = 512;
 
-                if (buf[len-1] == '\n') /* Remove newline */
-                        buf[--len] = '\0';
+                /* if (buf[len-1] == '\n') /1* Remove newline *1/ */
+                /*         buf[--len] = '\0'; */
 
                 if (len == 0) {
                         /* Empty line: only serve delivery reports */
@@ -178,6 +181,8 @@ int main (int argc, char **argv) {
                 }
 
 				printf("%zd: %s\n", len, buf);
+
+				bytes_total += len;
 
                 /*
                  * Send/Produce message.
@@ -265,6 +270,8 @@ int main (int argc, char **argv) {
 
 		if (fp != NULL)
 			fclose(fp);
+		
+		printf("total_written_bytes: %d\n", bytes_total);
 
         return 0;
 }
