@@ -44,6 +44,9 @@
 
 #include <librdkafka/rdkafka.h>
 
+#define XLOG_BLCKSZ (8 * 1024)
+#define XLOG_SEG_SIZE (16 * 1024 * 1024)
+
 
 static int run = 1;
 static rd_kafka_t *rk;
@@ -103,7 +106,27 @@ static void logger (const rd_kafka_t *rk, int level,
 		level, fac, rd_kafka_name(rk), buf);
 }
 
+FILE *
+open_walfile(char *filename)
+{
+    char        zerobuf[XLOG_BLCKSZ];
+    FILE        *fp;
+    int         bytes;
 
+    fp = fopen(filename, "wb");
+
+    /* New, empty, file. So pad it to 16Mb with zeroes */
+    memset(zerobuf, 0, XLOG_BLCKSZ);
+
+    for (bytes = 0; bytes < XLOG_SEG_SIZE; bytes += XLOG_BLCKSZ)
+    {
+        fwrite(zerobuf, XLOG_BLCKSZ, 1, fp);
+    }
+
+    fseek(fp, 0, SEEK_SET);
+
+    return fp;
+}
 
 /**
  * Handle and print a consumed message.
@@ -173,7 +196,9 @@ static void msg_consume (rd_kafka_message_t *rkmessage) {
 		       (int)rkmessage->len, (char *)rkmessage->payload);
 	if (file != NULL) {
         // fprintf(file, "%s", (char *) rkmessage->payload);
-		fwrite(rkmessage->payload, rkmessage->len, 1, file);
+        // TODO: We would potentially have to split the stream of bytes into two separate wal files
+        // if we exceed segment size. We can make that change when we introduce the xlog record parsing logic here
+        fwrite(rkmessage->payload, rkmessage->len, 1, file);
 		total_bytes += (int) rkmessage->len;
 	} 
 }
@@ -322,7 +347,7 @@ int main (int argc, char **argv) {
 			exit_eof = 1;
 			break;
 		case 'f':
-			file = fopen(optarg, "wb");
+			file = open_walfile(optarg); // fopen(optarg, "wb");
 			break;
 		case 'd':
 			debug = optarg;
